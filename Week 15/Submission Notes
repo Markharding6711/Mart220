@@ -1,0 +1,5 @@
+My game uses if/then logic to control the win and lose conditions. 
+If the player collects all of the pages, the game loads the Win Screen. 
+If the player’s health reaches zero, the game loads the Game Over Screen. 
+The game starts at the Main Menu, then moves to a Loading Scene, which automatically transitions into Level 1 after a short delay. 
+The end screens display clear win or lose messages and include buttons to restart the game or exit.
