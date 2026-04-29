@@ -29,6 +29,15 @@ let levelFruitGoal = 0;
 
 
 // ======================================================
+// FESTIVAL MENU / PAUSE / IDLE STATE
+// ======================================================
+
+let gameState = "menu"; // menu, playing, paused
+let lastInputTime = 0;
+let idleLimit = 120000;
+
+
+// ======================================================
 // TARGET FRUIT OBJECTIVE
 // ======================================================
 
@@ -151,6 +160,7 @@ function setup() {
   imageMode(CENTER);
   rectMode(CORNER);
   textAlign(CENTER, CENTER);
+  lastInputTime = millis();
 }
 
 
@@ -263,9 +273,11 @@ function startLevel(newLevel) {
   gameOver = false;
   gameWon = false;
   gameStarted = true;
+  gameState = "playing";
 
   levelIntro = true;
   levelIntroTimer = millis();
+  lastInputTime = millis();
 
   if (backgroundMusic && !backgroundMusic.isPlaying()) {
     backgroundMusic.loop();
@@ -278,6 +290,30 @@ function startGame() {
   startLevel(1);
 }
 
+function returnToMainMenu() {
+  gameState = "menu";
+  gameStarted = false;
+  gameOver = false;
+  gameWon = false;
+  levelIntro = false;
+  combo = 0;
+  jumpStreak = 0;
+  hitStop = 0;
+
+  if (backgroundMusic && backgroundMusic.isPlaying()) {
+    backgroundMusic.stop();
+  }
+}
+
+function exitGame() {
+  if (typeof require !== "undefined") {
+    const { ipcRenderer } = require("electron");
+    ipcRenderer.send("quit-app");
+  } else {
+    window.close();
+  }
+}
+
 
 // ======================================================
 // DRAW
@@ -286,8 +322,17 @@ function startGame() {
 function draw() {
   drawParallaxBackground();
 
-  if (!gameStarted) {
-    showStartScreen();
+  if (gameState === "playing" && millis() - lastInputTime > idleLimit) {
+    returnToMainMenu();
+  }
+
+  if (gameState === "menu") {
+    drawMainMenu();
+    return;
+  }
+
+  if (gameState === "paused") {
+    drawPauseMenu();
     return;
   }
 
@@ -359,6 +404,90 @@ function draw() {
 
 
 // ======================================================
+// MAIN MENU
+// ======================================================
+
+function drawMainMenu() {
+  fill(0, 120);
+  rect(0, 0, width, height);
+
+  fill(255);
+  stroke(0);
+  strokeWeight(5);
+  textAlign(CENTER, CENTER);
+
+  textSize(46);
+  text("DOODLE CLIMB", width / 2, 75);
+
+  strokeWeight(2);
+  textSize(18);
+  text("A vertical arcade platformer about climbing, momentum, and survival.", width / 2, 125);
+
+  textSize(16);
+  text("Created by Mark Harding", width / 2, 155);
+
+  textSize(15);
+  text("Development Team:", width / 2, 195);
+  text("Design, Programming, Art Direction, and Level Tuning: Mark Harding", width / 2, 220);
+  text("Built with p5.js, JavaScript, and Electron", width / 2, 245);
+
+  textSize(15);
+  text("Controls:", width / 2, 295);
+  text("Arrow Keys = Move Left / Right", width / 2, 320);
+  text("Stomp enemies to defeat them", width / 2, 345);
+  text("ESC = Pause Menu", width / 2, 370);
+
+  noStroke();
+
+  fill(255);
+  rect(width / 2 - 90, 415, 180, 50, 10);
+
+  fill(0);
+  textSize(24);
+  text("START", width / 2, 440);
+
+  fill(255);
+  rect(width / 2 - 90, 485, 180, 50, 10);
+
+  fill(0);
+  textSize(24);
+  text("EXIT", width / 2, 510);
+}
+
+
+// ======================================================
+// PAUSE MENU
+// ======================================================
+
+function drawPauseMenu() {
+  fill(0, 190);
+  rect(0, 0, width, height);
+
+  fill(255);
+  stroke(0);
+  strokeWeight(4);
+  textAlign(CENTER, CENTER);
+
+  textSize(42);
+  text("PAUSED", width / 2, 170);
+
+  strokeWeight(2);
+  textSize(20);
+  text("Press ESC to Resume", width / 2, 240);
+  text("Press M to Return to Main Menu", width / 2, 280);
+
+  noStroke();
+
+  fill(255);
+  rect(width / 2 - 100, 335, 200, 50, 10);
+
+  fill(0);
+  textSize(22);
+  text("MAIN MENU", width / 2, 360);
+}
+
+
+// ======================================================
 // FROZEN WORLD FOR HIT STOP
 // ======================================================
 
@@ -381,37 +510,6 @@ function displayFrozenWorld() {
 
   drawPlayerShadow();
   updatePlayerAnimation();
-}
-
-
-// ======================================================
-// START SCREEN
-// ======================================================
-
-function showStartScreen() {
-  fill(0, 180);
-  rect(0, 0, width, height);
-
-  fill(255);
-  stroke(0);
-  strokeWeight(4);
-  textSize(40);
-  text("DOODLE CLIMB", width / 2, 190);
-
-  strokeWeight(2);
-  textSize(22);
-  text("Press SPACE to Start", width / 2, 270);
-  text("Move: Arrow Keys", width / 2, 320);
-  text("Jump on enemies to defeat them!", width / 2, 360);
-  text("Miss a cloud or take damage = lose a life!", width / 2, 395);
-
-  noStroke();
-  fill(255);
-  rect(width / 2 - 90, 440, 180, 50, 10);
-
-  fill(0);
-  textSize(24);
-  text("START", width / 2, 465);
 }
 
 
@@ -781,7 +879,7 @@ function getEnemySpawnRate() {
 }
 
 function maybeSpawnMoreEnemies() {
-  if (gameOver || gameWon || levelIntro) return;
+  if (gameOver || gameWon || levelIntro || gameState !== "playing") return;
 
   let spawnRate = getEnemySpawnRate();
 
@@ -1022,17 +1120,18 @@ function showGameOver() {
   textAlign(CENTER, CENTER);
 
   textSize(40);
-  text("GAME OVER", width / 2, 105);
+  text("GAME OVER", width / 2, 95);
 
   strokeWeight(2);
   textSize(20);
-  text("Level Reached: " + level, width / 2, 190);
-  text("Total Score: " + floor(totalScore), width / 2, 225);
-  text(targetFruitName + " Collected: " + foodsCollected, width / 2, 260);
-  text("Enemies Defeated: " + enemiesKilled, width / 2, 295);
+  text("Level Reached: " + level, width / 2, 170);
+  text("Total Score: " + floor(totalScore), width / 2, 205);
+  text(targetFruitName + " Collected: " + foodsCollected, width / 2, 240);
+  text("Enemies Defeated: " + enemiesKilled, width / 2, 275);
 
   textSize(18);
-  text("Press R to Restart", width / 2, 360);
+  text("Press R to Restart", width / 2, 340);
+  text("Press M for Main Menu", width / 2, 375);
 
   noStroke();
 }
@@ -1052,26 +1151,27 @@ function showWinScreen() {
   textAlign(CENTER, CENTER);
 
   textSize(40);
-  text("LEVEL CLEAR!", width / 2, 110);
+  text("LEVEL CLEAR!", width / 2, 95);
 
   strokeWeight(2);
   textSize(22);
-  text("Level " + level + " complete", width / 2, 160);
+  text("Level " + level + " complete", width / 2, 145);
 
   textSize(18);
-  text("Total Score: " + floor(totalScore), width / 2, 215);
-  text(targetFruitName + ": " + foodsCollected + " / " + levelFruitGoal, width / 2, 245);
-  text("Enemies Defeated: " + enemiesKilled + " / " + levelKillGoal, width / 2, 275);
+  text("Total Score: " + floor(totalScore), width / 2, 200);
+  text(targetFruitName + ": " + foodsCollected + " / " + levelFruitGoal, width / 2, 230);
+  text("Enemies Defeated: " + enemiesKilled + " / " + levelKillGoal, width / 2, 260);
 
   if (playerLives === maxLives) {
     fill(255, 220, 0);
-    text("PERFECT CLEAR BONUS!", width / 2, 310);
+    text("PERFECT CLEAR BONUS!", width / 2, 295);
     fill(255);
   }
 
   textSize(18);
-  text("Press N for Next Level", width / 2, 360);
-  text("Press R to Restart from Level 1", width / 2, 395);
+  text("Press N for Next Level", width / 2, 355);
+  text("Press R to Restart from Level 1", width / 2, 385);
+  text("Press M for Main Menu", width / 2, 415);
 
   noStroke();
 }
@@ -1082,8 +1182,29 @@ function showWinScreen() {
 // ======================================================
 
 function keyPressed() {
-  if (!gameStarted && keyCode === 32) {
+  lastInputTime = millis();
+
+  if (gameState === "menu" && keyCode === 32) {
     startGame();
+    return false;
+  }
+
+  if (keyCode === ESCAPE) {
+    if (gameState === "playing" && !gameOver && !gameWon) {
+      gameState = "paused";
+    } else if (gameState === "paused") {
+      gameState = "playing";
+    }
+    return false;
+  }
+
+  if (gameState === "paused" && (key === "m" || key === "M")) {
+    returnToMainMenu();
+    return false;
+  }
+
+  if ((gameOver || gameWon) && (key === "m" || key === "M")) {
+    returnToMainMenu();
     return false;
   }
 
@@ -1104,14 +1225,39 @@ function keyPressed() {
 }
 
 function mousePressed() {
-  if (!gameStarted) {
+  lastInputTime = millis();
+
+  if (gameState === "menu") {
     if (
       mouseX > width / 2 - 90 &&
       mouseX < width / 2 + 90 &&
-      mouseY > 440 &&
-      mouseY < 490
+      mouseY > 415 &&
+      mouseY < 465
     ) {
       startGame();
+      return;
+    }
+
+    if (
+      mouseX > width / 2 - 90 &&
+      mouseX < width / 2 + 90 &&
+      mouseY > 485 &&
+      mouseY < 535
+    ) {
+      exitGame();
+      return;
+    }
+  }
+
+  if (gameState === "paused") {
+    if (
+      mouseX > width / 2 - 100 &&
+      mouseX < width / 2 + 100 &&
+      mouseY > 335 &&
+      mouseY < 385
+    ) {
+      returnToMainMenu();
+      return;
     }
   }
 }
