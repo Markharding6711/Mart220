@@ -19,20 +19,23 @@ let totalScore = 0;
 let foodsCollected = 0;
 let enemiesKilled = 0;
 
+let highScores = [];
+let maxHighScores = 5;
+let scoreSavedThisRun = false;
+
 let gameOver = false;
 let gameStarted = false;
 let gameWon = false;
 
 let level = 1;
-let levelKillGoal = 10;
-let levelFruitGoal = 0;
+let levelFruitGoal = 5;
 
 
 // ======================================================
 // FESTIVAL MENU / PAUSE / IDLE STATE
 // ======================================================
 
-let gameState = "menu"; // menu, playing, paused
+let gameState = "menu";
 let lastInputTime = 0;
 let idleLimit = 120000;
 
@@ -161,6 +164,74 @@ function setup() {
   rectMode(CORNER);
   textAlign(CENTER, CENTER);
   lastInputTime = millis();
+
+  loadHighScores();
+}
+
+
+// ======================================================
+// HIGH SCORES
+// ======================================================
+
+function loadHighScores() {
+  let savedScores = localStorage.getItem("doodleClimbHighScores");
+
+  if (savedScores) {
+    highScores = JSON.parse(savedScores);
+  } else {
+    highScores = [];
+  }
+}
+
+function saveHighScores() {
+  localStorage.setItem("doodleClimbHighScores", JSON.stringify(highScores));
+}
+
+function addHighScore(score) {
+  if (scoreSavedThisRun) return;
+
+  highScores.push({
+    score: floor(score),
+    level: level,
+    fruit: foodsCollected
+  });
+
+  highScores.sort((a, b) => b.score - a.score);
+
+  if (highScores.length > maxHighScores) {
+    highScores.length = maxHighScores;
+  }
+
+  saveHighScores();
+  scoreSavedThisRun = true;
+}
+
+function drawHighScores() {
+  fill(255);
+  stroke(0);
+  strokeWeight(2);
+  textAlign(CENTER, CENTER);
+
+  textSize(18);
+  text("High Scores", width / 2, 260);
+
+  textSize(14);
+
+  if (highScores.length === 0) {
+    text("No scores yet", width / 2, 285);
+  } else {
+    for (let i = 0; i < highScores.length; i++) {
+      let hs = highScores[i];
+
+      text(
+        (i + 1) + ". " + hs.score + " pts - Level " + hs.level,
+        width / 2,
+        285 + i * 20
+      );
+    }
+  }
+
+  noStroke();
 }
 
 
@@ -195,11 +266,9 @@ function drawParallaxBackground() {
 
 function setLevelGoals() {
   if (level <= 6) {
-    levelKillGoal = 5 + (level - 1) * 5;
-    levelFruitGoal = (level - 1) * 5;
+    levelFruitGoal = 5 + (level - 1) * 5;
   } else {
-    levelKillGoal = 30 + (level - 6) * 10;
-    levelFruitGoal = 25 + (level - 6) * 10;
+    levelFruitGoal = 30 + (level - 6) * 10;
   }
 }
 
@@ -253,6 +322,10 @@ function startLevel(newLevel) {
   hitStop = 0;
   levelCompleteTriggered = false;
 
+  if (newLevel === 1) {
+    scoreSavedThisRun = false;
+  }
+
   platforms = [];
   enemies = [];
   fruits = [];
@@ -287,10 +360,15 @@ function startLevel(newLevel) {
 function startGame() {
   userStartAudio();
   totalScore = 0;
+  scoreSavedThisRun = false;
   startLevel(1);
 }
 
 function returnToMainMenu() {
+  if (gameStarted && totalScore > 0) {
+    addHighScore(totalScore);
+  }
+
   gameState = "menu";
   gameStarted = false;
   gameOver = false;
@@ -306,6 +384,10 @@ function returnToMainMenu() {
 }
 
 function exitGame() {
+  if (gameStarted && totalScore > 0) {
+    addHighScore(totalScore);
+  }
+
   if (typeof require !== "undefined") {
     const { ipcRenderer } = require("electron");
     ipcRenderer.send("quit-app");
@@ -416,42 +498,41 @@ function drawMainMenu() {
   strokeWeight(5);
   textAlign(CENTER, CENTER);
 
-  textSize(46);
-  text("DOODLE CLIMB", width / 2, 75);
+  textSize(44);
+  text("DOODLE CLIMB", width / 2, 55);
 
   strokeWeight(2);
-  textSize(18);
-  text("A vertical arcade platformer about climbing, momentum, and survival.", width / 2, 125);
-
-  textSize(16);
-  text("Created by Mark Harding", width / 2, 155);
-
   textSize(15);
-  text("Development Team:", width / 2, 195);
-  text("Design, Programming, Art Direction, and Level Tuning: Mark Harding", width / 2, 220);
-  text("Built with p5.js, JavaScript, and Electron", width / 2, 245);
+  text("A vertical arcade platformer about climbing, momentum, and survival.", width / 2, 100);
 
-  textSize(15);
-  text("Controls:", width / 2, 295);
-  text("Arrow Keys = Move Left / Right", width / 2, 320);
-  text("Stomp enemies to defeat them", width / 2, 345);
-  text("ESC = Pause Menu", width / 2, 370);
+  textSize(14);
+  text("Created by Mark Harding", width / 2, 125);
+
+  textSize(13);
+  text("Design, Programming, Art Direction, and Level Tuning: Mark Harding", width / 2, 155);
+  text("Built with p5.js, JavaScript, and Electron", width / 2, 178);
+
+  drawHighScores();
+
+  textSize(13);
+  text("Controls: Arrow Keys = Move | Stomp Enemies = Boost | ESC = Pause", width / 2, 405);
+  text("Goal: Collect the target fruit to clear each level.", width / 2, 428);
 
   noStroke();
 
   fill(255);
-  rect(width / 2 - 90, 415, 180, 50, 10);
+  rect(width / 2 - 90, 455, 180, 45, 10);
 
   fill(0);
-  textSize(24);
-  text("START", width / 2, 440);
+  textSize(22);
+  text("START", width / 2, 477);
 
   fill(255);
-  rect(width / 2 - 90, 485, 180, 50, 10);
+  rect(width / 2 - 90, 515, 180, 45, 10);
 
   fill(0);
-  textSize(24);
-  text("EXIT", width / 2, 510);
+  textSize(22);
+  text("EXIT", width / 2, 537);
 }
 
 
@@ -531,19 +612,18 @@ function showLevelIntro() {
 
   strokeWeight(2);
   textSize(24);
-  text("Goals", width / 2, 230);
+  text("Goal", width / 2, 230);
 
   textSize(20);
-  text("Kills: " + levelKillGoal, width / 2, 285);
+  text("Collect " + targetFruitName + ": " + levelFruitGoal, width / 2, 295);
 
-  if (levelFruitGoal > 0) {
-    text("Collect " + targetFruitName + ": " + levelFruitGoal, width / 2, 320);
+  if (level === 1) {
+    textSize(16);
+    text("Level 1 has no enemies. Focus on climbing and collecting.", width / 2, 360);
   } else {
-    text("Fruit Goal: None Yet", width / 2, 320);
+    textSize(16);
+    text("Stomp enemies for jump boosts. Collect fruit to clear the level.", width / 2, 360);
   }
-
-  textSize(16);
-  text("Golden clouds are rare. Streaks and combos give bonus points.", width / 2, 390);
 
   noStroke();
 }
@@ -771,27 +851,28 @@ function spawnFruits() {
 
   fruits.push(new Food(targetFruitType, -500));
   fruits.push(new Food(targetFruitType, -1100));
+  fruits.push(new Food(targetFruitType, -1700));
 
   if (targetFruitType !== "banana") {
-    fruits.push(new Food("banana", -1600));
+    fruits.push(new Food("banana", -2200));
   }
 
   if (targetFruitType !== "cherry") {
-    fruits.push(new Food("cherry", -2050));
+    fruits.push(new Food("cherry", -2650));
   }
 
   if (targetFruitType !== "strawberry") {
-    fruits.push(new Food("strawberry", -2500));
+    fruits.push(new Food("strawberry", -3100));
   }
 
   if (targetFruitType !== "orange") {
-    fruits.push(new Food("orange", -2950));
+    fruits.push(new Food("orange", -3550));
   }
 
-  fruits.push(new Food("apple_bad", -3400));
+  fruits.push(new Food("apple_bad", -4000));
 
   if (random() < getAppleBonusChance()) {
-    fruits.push(new Food("apple", -3900));
+    fruits.push(new Food("apple", -4500));
   }
 }
 
@@ -867,19 +948,24 @@ function handleFruits() {
 // ======================================================
 
 function getEnemySpawnRate() {
+  if (level <= 1) {
+    return 999999;
+  }
+
   if (level <= 3) {
-    return 260;
+    return 280;
   }
 
   if (level <= 8) {
-    return 220;
+    return 240;
   }
 
-  return 180;
+  return 200;
 }
 
 function maybeSpawnMoreEnemies() {
   if (gameOver || gameWon || levelIntro || gameState !== "playing") return;
+  if (level === 1) return;
 
   let spawnRate = getEnemySpawnRate();
 
@@ -889,7 +975,7 @@ function maybeSpawnMoreEnemies() {
 
   let availableTypes = [];
 
-  if (level >= 1 && level <= 3) {
+  if (level >= 2 && level <= 3) {
     availableTypes.push(1);
   }
 
@@ -943,25 +1029,24 @@ function handleEnemies() {
       e.takeHit(stompDamage);
       e.hitCooldown = millis() + 250;
 
-      velocityY = jumpForce * 1.25;
+      velocityY = jumpForce * 1.45;
       screenShake = 5;
       hitStop = 4;
 
-      createParticles(e.x, e.y, 10);
+      createParticles(e.x, e.y, 12);
       addFloatingText("ENEMY BOOST!", playerX, playerY - 45);
-      addFloatingText("-" + stompDamage, e.x, e.y - 45);
 
       if (combo > 1) {
         addFloatingText("COMBO x" + combo, e.x, e.y - 75);
       }
 
       if (e.health <= 0) {
-        let comboScore = 200 * combo;
+        let comboScore = 100 * combo;
 
-        screenShake = 10;
-        hitStop = 7;
+        screenShake = 8;
+        hitStop = 5;
 
-        createParticles(e.x, e.y, 30);
+        createParticles(e.x, e.y, 24);
         addFloatingText("+" + comboScore, e.x, e.y - 65);
 
         enemies.splice(i, 1);
@@ -972,11 +1057,11 @@ function handleEnemies() {
       continue;
     }
 
-    if (touchingEnemy) {
+    if (touchingEnemy && !invincible) {
       combo = 0;
       jumpStreak = 0;
       screenShake = 8;
-      hitStop = 5;
+      hitStop = 4;
       addFloatingText("-1 LIFE", playerX, playerY - 45);
       damagePlayer(e.x);
     }
@@ -993,10 +1078,7 @@ function handleEnemies() {
 // ======================================================
 
 function checkWinCondition() {
-  if (
-    enemiesKilled >= levelKillGoal &&
-    foodsCollected >= levelFruitGoal
-  ) {
+  if (foodsCollected >= levelFruitGoal) {
     triggerLevelCompleteBurst();
     gameWon = true;
 
@@ -1051,29 +1133,16 @@ function drawUI() {
     fill(0);
   }
 
-  let fruitText;
-
-  if (levelFruitGoal > 0) {
-    fruitText = targetFruitName + ": " + foodsCollected + " / " + levelFruitGoal;
-  } else {
-    fruitText = targetFruitName + ": No Goal";
-  }
-
-  let killText = "Kills: " + enemiesKilled + " / " + levelKillGoal;
+  let fruitText = targetFruitName + ": " + foodsCollected + " / " + levelFruitGoal;
 
   if (foodsCollected >= levelFruitGoal) {
     fruitText += " COMPLETE";
-  }
-
-  if (enemiesKilled >= levelKillGoal) {
-    killText += " COMPLETE";
   }
 
   textAlign(RIGHT, CENTER);
 
   fill(0);
   text(fruitText, width - 20, 30);
-  text(killText, width - 20, 60);
 }
 
 
@@ -1082,6 +1151,8 @@ function drawUI() {
 // ======================================================
 
 function triggerDeath() {
+  addHighScore(totalScore);
+
   gameOver = true;
 
   if (backgroundMusic && backgroundMusic.isPlaying()) {
@@ -1127,7 +1198,7 @@ function showGameOver() {
   text("Level Reached: " + level, width / 2, 170);
   text("Total Score: " + floor(totalScore), width / 2, 205);
   text(targetFruitName + " Collected: " + foodsCollected, width / 2, 240);
-  text("Enemies Defeated: " + enemiesKilled, width / 2, 275);
+  text("Enemy Boosts Used: " + enemiesKilled, width / 2, 275);
 
   textSize(18);
   text("Press R to Restart", width / 2, 340);
@@ -1160,7 +1231,7 @@ function showWinScreen() {
   textSize(18);
   text("Total Score: " + floor(totalScore), width / 2, 200);
   text(targetFruitName + ": " + foodsCollected + " / " + levelFruitGoal, width / 2, 230);
-  text("Enemies Defeated: " + enemiesKilled + " / " + levelKillGoal, width / 2, 260);
+  text("Enemy Boosts Used: " + enemiesKilled, width / 2, 260);
 
   if (playerLives === maxLives) {
     fill(255, 220, 0);
@@ -1217,6 +1288,7 @@ function keyPressed() {
   if ((gameOver || gameWon) && (key === "r" || key === "R")) {
     userStartAudio();
     totalScore = 0;
+    scoreSavedThisRun = false;
     startLevel(1);
     return false;
   }
@@ -1231,8 +1303,8 @@ function mousePressed() {
     if (
       mouseX > width / 2 - 90 &&
       mouseX < width / 2 + 90 &&
-      mouseY > 415 &&
-      mouseY < 465
+      mouseY > 455 &&
+      mouseY < 500
     ) {
       startGame();
       return;
@@ -1241,8 +1313,8 @@ function mousePressed() {
     if (
       mouseX > width / 2 - 90 &&
       mouseX < width / 2 + 90 &&
-      mouseY > 485 &&
-      mouseY < 535
+      mouseY > 515 &&
+      mouseY < 560
     ) {
       exitGame();
       return;

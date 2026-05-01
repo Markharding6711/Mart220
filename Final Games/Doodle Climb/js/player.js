@@ -170,13 +170,17 @@ function damagePlayer(enemyX) {
   currentAnimation = hurtFrames;
   currentFrame = 0;
 
+  // bounce away from enemy
   if (playerX < enemyX) {
-    playerX -= knockbackX;
+    playerX -= 35;
+    playerDirection = -1;
   } else {
-    playerX += knockbackX;
+    playerX += 35;
+    playerDirection = 1;
   }
 
-  velocityY = knockbackY;
+  // bounce upward so player does not stay stuck inside enemy
+  velocityY = jumpForce * 0.9;
 
   invincible = true;
   invincibleTimer = millis();
