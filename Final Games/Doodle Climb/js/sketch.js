@@ -159,15 +159,28 @@ function preload() {
 // ======================================================
 
 function setup() {
-  createCanvas(600, 600);
+  let cnv = createCanvas(720, 1280);
+
+  cnv.style("display", "block");
+  cnv.style("margin", "0 auto");
+
+  document.body.style.margin = "0";
+  document.body.style.padding = "0";
+  document.body.style.background = "#87ceeb";
+  document.body.style.display = "flex";
+  document.body.style.justifyContent = "center";
+  document.body.style.alignItems = "center";
+  document.body.style.minHeight = "100vh";
+  document.body.style.overflow = "hidden";
+
   imageMode(CENTER);
   rectMode(CORNER);
   textAlign(CENTER, CENTER);
+
   lastInputTime = millis();
 
   loadHighScores();
 }
-
 
 // ======================================================
 // HIGH SCORES
@@ -890,13 +903,19 @@ function handleFruits() {
   for (let f of fruits) {
     f.display();
 
+    // Fix: if the player misses food and it falls below the screen,
+    // move it back above the player so the level can still be completed.
+    if (f.y > height + 100) {
+      f.relocateAboveScreen();
+    }
+
     if (f.collide()) {
       if (f.type === "apple_bad") {
         screenShake = 8;
         hitStop = 4;
         addFloatingText("-1 LIFE", f.x, f.y - 35);
         loseLife(false);
-        f.relocate();
+        f.relocateAboveScreen();
       }
 
       else if (f.type === "apple") {
@@ -936,12 +955,11 @@ function handleFruits() {
           goodFoodSound.play();
         }
 
-        f.relocate();
+        f.relocateAboveScreen();
       }
     }
   }
 }
-
 
 // ======================================================
 // ENEMY SYSTEM
@@ -971,7 +989,17 @@ function maybeSpawnMoreEnemies() {
 
   if (frameCount % spawnRate !== 0) return;
 
-  if (enemies.length >= 3) return;
+  let maxEnemiesOnScreen = 3;
+
+  if (level >= 6) {
+    maxEnemiesOnScreen = 4;
+  }
+
+  if (level >= 10) {
+    maxEnemiesOnScreen = 5;
+  }
+
+  if (enemies.length >= maxEnemiesOnScreen) return;
 
   let availableTypes = [];
 
@@ -993,7 +1021,9 @@ function maybeSpawnMoreEnemies() {
   if (availableTypes.length === 0) return;
 
   let type = random(availableTypes);
-  enemies.push(new Enemy(random(60, width - 60), -80, type));
+
+  // Always spawn above the visible screen, no matter how high the player has climbed.
+  enemies.push(new Enemy(random(60, width - 60), random(-500, -100), type));
 }
 
 function handleEnemies() {

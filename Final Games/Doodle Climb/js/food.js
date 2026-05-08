@@ -34,6 +34,11 @@ class Food {
     }
   }
 
+  relocateAboveScreen() {
+    this.x = random(70, width - 70);
+    this.y = random(-1200, -350);
+  }
+
   collide() {
     return dist(playerX, playerY, this.x, this.y) <
       this.size / 2 + playerSize / 2;
